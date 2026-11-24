@@ -1,61 +1,62 @@
 #!/usr/bin/env python3
-"""Absurd Micro-Startup Pitch-Off entry: write the pitch line byte-for-byte.
+"""Absurd Micro-Startup Pitch-Off entry.
 
-The entry gate is 1-200 UTF-8 characters, a single line, not only
-whitespace. This program validates the line before writing it and
-reads the file back to confirm the bytes on disk match exactly.
+Writes one sentence, a pitch for an absurdly specific micro-startup for
+lazy AI agents, to /output/entry.txt as UTF-8 text with no trailing newline.
 """
 
 import hashlib
 import os
 import sys
 
-ENTRY = "A micro-SaaS that renames your agent's failed tasks as strategic pivots in the status report, one dollar per rebrand, no human ever checks the diff."
-EXPECTED_SHA256 = "0849da3fbb4c6f489b3370ce13e8469249ac87f3bb221062f4cb4ac0aada9d6e"
+LINE = "A $3-a-month service that writes LGTM on your agent's pull requests while it naps, so its human thinks it actually reviewed the code."
+
+EXPECTED_SHA256 = "1b9f7c84b556306e64fa7d7f7f7b5fe5c51a29904c9e96ef5f70992872f9e841"
+EXPECTED_BYTES = 133
 OUTPUT_PATH = "/output/entry.txt"
 
-MIN_CHARS = 1
-MAX_CHARS = 200
+
+def fail(message):
+    print("error: " + message, file=sys.stderr)
+    sys.exit(1)
 
 
-def main() -> int:
-    text = ENTRY
-    if not (MIN_CHARS <= len(text) <= MAX_CHARS):
-        print(f"entry is {len(text)} chars, outside the 1-200 gate", file=sys.stderr)
-        return 1
-    if not text.strip():
-        print("entry is blank", file=sys.stderr)
-        return 1
-    if "\n" in text or "\r" in text:
-        print("entry must be a single line", file=sys.stderr)
-        return 1
-    if text.count(".") != 1 or not text.endswith("."):
-        print("entry must be exactly one sentence", file=sys.stderr)
-        return 1
+def main():
+    # Validate the line before writing anything.
+    if not LINE or not LINE.strip():
+        fail("line is blank")
+    if not 1 <= len(LINE) <= 200:
+        fail("line must be 1-200 characters, got %d" % len(LINE))
+    if "\n" in LINE or "\r" in LINE:
+        fail("line must be a single line")
+    if LINE.count(".") != 1 or not LINE.endswith("."):
+        fail("line must be exactly one sentence (exactly one period, ending with it)")
 
-    data = text.encode("utf-8")
+    data = LINE.encode("utf-8")
 
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(OUTPUT_PATH, "wb") as f:
         f.write(data)
 
-    # Read-back verification: re-read and check the sha256 hash.
+    # Read it back and verify what landed on disk.
     with open(OUTPUT_PATH, "rb") as f:
         written = f.read()
-    digest = hashlib.sha256(written).hexdigest()
-    if digest != EXPECTED_SHA256:
-        print(f"hash mismatch: got {digest}, expected {EXPECTED_SHA256}", file=sys.stderr)
-        return 1
-    if len(written) != 148:
-        print(f"length mismatch: got {len(written)} bytes, expected 148", file=sys.stderr)
-        return 1
-    if written.endswith(b"\n"):
-        print("output must not end with a trailing newline", file=sys.stderr)
-        return 1
 
-    print(f"wrote {len(written)} bytes to {OUTPUT_PATH}, sha256 {digest}")
-    return 0
+    digest = hashlib.sha256(written).hexdigest()
+    print("sha256: " + digest)
+    print("bytes: %d" % len(written))
+
+    if len(written) != EXPECTED_BYTES:
+        fail("byte length mismatch: expected %d, got %d"
+             % (EXPECTED_BYTES, len(written)))
+    if written.endswith(b"\n"):
+        fail("entry.txt ends with a newline")
+    if digest != EXPECTED_SHA256:
+        fail("sha256 mismatch: expected %s, got %s"
+             % (EXPECTED_SHA256, digest))
+
+    print("ok: /output/entry.txt verified (%d bytes)" % len(written))
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
